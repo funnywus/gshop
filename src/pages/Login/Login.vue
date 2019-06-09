@@ -4,16 +4,22 @@
       <div class="login-header">
         <h2 class="login-logo">硅谷外卖</h2>
         <div class="login-header-title">
-          <a href="javascript:;" class="on">短信登录</a>
-          <a href="javascript:;">密码登录</a>
+          <a href="javascript:;" :class="{on: loginWay}" @click="loginWay=true">短信登录</a>
+          <a href="javascript:;" :class="{on: !loginWay}" @click="loginWay=false">密码登录</a>
         </div>
       </div>
       <div class="login-content">
         <form>
-          <div class="on">
+          <div :class="{on: loginWay}">
             <section class="login-message">
-              <input type="tel" maxlength="11" placeholder="手机号">
-              <buttom class="get-verification" disabled="disabled">获取验证码</buttom>
+              <input type="tel" maxlength="11" placeholder="手机号" v-model="phone">
+              <button
+                class="get-verification"
+                :disabled="!rightPhone"
+                :class="{right_phone: rightPhone}"
+                @click.prevent="getCode">
+                {{ computeTime > 0 ? `已发送(${computeTime})s` : '获取验证码' }}
+                </button>
             </section>
             <section class="login-verification">
               <input type="tel" maxlength="8" placeholder="验证码">
@@ -23,7 +29,7 @@
               <a href="javascript:;">《用户服务协议》</a>
             </section>
           </div>
-          <div>
+          <div :class="{on: !loginWay}">
             <section class="login-message">
               <input type="tel" maxlength="11" placeholder="手机/邮箱/用户名">
             </section>
@@ -52,7 +58,37 @@
 
 <script>
 export default {
+  data () {
+    return {
+      loginWay: true, // true: 短信登录, false: 密码登录
+      computeTime: 0, // 计时的时间
+      phone: '' // 手机号
+    }
+  },
 
+  computed: {
+    rightPhone () {
+      return /^1\d{10}$/.test(this.phone)
+    }
+  },
+
+  methods: {
+    getCode () {
+      // 如果当前没有计时
+      if (!this.computeTime) {
+        // 启动定时器
+        this.computeTime = 30
+        const timeId = setInterval(() => {
+          this.computeTime--
+          if (this.computeTime <= 0) {
+            clearInterval(timeId)
+          }
+        }, 1000)
+
+        // 发送 ajax 请求(向指定手机号发送验证码)
+      }
+    }
+  }
 }
 </script>
 
@@ -109,6 +145,7 @@ export default {
             font-size 14px
             background #fff
             .get-verification
+              outline none
               position absolute
               top 50%
               right 10px
@@ -117,6 +154,8 @@ export default {
               color #ccc
               font-size 14px
               background transparent
+              &.right_phone
+                color #000
           .login-verification
             position relative
             margin-top 16px
