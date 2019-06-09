@@ -8,9 +8,19 @@
 </template>
 
 <script>
+import { mapActions } from 'vuex'
 import FooterGudie from './components/FooterGuide/FooterGuide'
 
 export default {
+  async mounted () {
+    // this.$store.dispatch('getAddress')
+    this.getAddress()
+  },
+
+  methods: {
+    ...mapActions(['getAddress'])
+  },
+
   components: {
     'footer-guide': FooterGudie
   }
