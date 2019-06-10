@@ -50,10 +50,6 @@ export default new VueRouter({
     {
       path: '/login',
       component: Login
-    },
-    {
-      path: '*',
-      redirect: '/'
     }
   ],
   mode: 'history'

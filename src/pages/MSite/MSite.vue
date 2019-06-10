@@ -2,12 +2,17 @@
   <div id="msite">
     <!-- 首页头部 -->
     <HeaderTop :title="address.name">
-      <span class="header_search" slot="left">
+      <router-link to="/search" class="header_search" slot="left">
         <i class="iconfont icon-icon_search1"></i>
-      </span>
-      <span class="header_login" slot="right">
-        <span class="header_login_text">登录 | 注册</span>
-      </span>
+      </router-link>
+      <router-link class="header_login" slot="right" :to="userInfo._id ? '/userinfo' : '/login'">
+        <span class="header_login_text" v-if="!userInfo._id">
+          登录 | 注册
+        </span>
+        <span class="header_login_text" v-else>
+          <i class="iconfont icon-Home_icon_geren"></i>
+        </span>
+      </router-link>
     </HeaderTop>
     <!-- 首页导航 -->
     <nav class="msite_nav">
@@ -91,7 +96,7 @@ export default {
   },
 
   computed: {
-    ...mapState(['address', 'categories']),
+    ...mapState(['address', 'categories', 'userInfo']),
     /**
      * 根据 categories 一堆数组生成一个 二维数组,
      * 小数组中的元素的个数是 8

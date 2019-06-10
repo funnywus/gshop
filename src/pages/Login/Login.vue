@@ -1,5 +1,5 @@
 <template>
-  <div class="login-container">
+  <section class="login-container">
     <div class="login-inner">
       <div class="login-header">
         <h2 class="login-logo">硅谷外卖</h2>
@@ -9,7 +9,7 @@
         </div>
       </div>
       <div class="login-content">
-        <form>
+        <form @submit.prevent="login" autocomplete="off">
           <div :class="{on: loginWay}">
             <section class="login-message">
               <input type="tel" maxlength="11" placeholder="手机号" v-model="phone">
@@ -22,7 +22,7 @@
                 </button>
             </section>
             <section class="login-verification">
-              <input type="tel" maxlength="8" placeholder="验证码">
+              <input type="tel" maxlength="8" placeholder="验证码" v-model="code">
             </section>
             <section class="login-hint">
               温馨提示：未注册硅谷外卖帐号的手机号，登录时将自动注册，且代表已同意
@@ -31,18 +31,19 @@
           </div>
           <div :class="{on: !loginWay}">
             <section class="login-message">
-              <input type="tel" maxlength="11" placeholder="手机/邮箱/用户名">
+              <input type="text" maxlength="11" placeholder="手机/邮箱/用户名" v-model="name">
             </section>
             <section class="login-verification">
-              <input type="tel" maxlength="8" placeholder="密码">
-              <div class="switch-button off">
-                <div class="switch-circle"></div>
-                <span class="switch-text">...</span>
+              <input type="text" maxlength="8" placeholder="密码" v-if="showPwd" v-model="pwd">
+              <input type="password" maxlength="8" placeholder="密码" v-else v-model="pwd">
+              <div class="switch-button" :class="showPwd ? 'on' : 'off'" @click="showPwd = !showPwd">
+                <div class="switch-circle" :class="{right: showPwd}"></div>
+                <span class="switch-text">{{ showPwd ? 'abc' : '...' }}</span>
               </div>
             </section>
             <section class="login-message">
-              <input type="text" maxlength="11" placeholder="验证码">
-              <img class="get-verification" src="./images/captcha.svg" alt="captcha">
+              <input type="text" maxlength="11" placeholder="验证码" v-model="captcha">
+              <img class="get-verification" src="http://localhost:4000/captcha" alt="captcha" @click="getCaptcha" ref="captcha">
             </section>
           </div>
           <button class="login-submit">登录</button>
@@ -53,16 +54,31 @@
         <i class="iconfont icon-left"></i>
       </a>
     </div>
-  </div>
+    <AlertTip :alertText="alertText" v-show="alertShow" @closeTip="closeTip" />
+  </section>
 </template>
 
 <script>
+import AlertTip from '../../components/AlertTip/AlertTip'
+import {
+  reqSendCode,
+  reqSmsLogin,
+  reqPwdLogin
+} from '../../api'
+
 export default {
   data () {
     return {
       loginWay: true, // true: 短信登录, false: 密码登录
       computeTime: 0, // 计时的时间
-      phone: '' // 手机号
+      showPwd: false, // 是否显示密码
+      phone: '', // 手机号
+      code: '', // 短信验证码
+      name: '', // 用户名
+      pwd: '', // 密码
+      captcha: '', // 图形验证码
+      alertText: '', // 提示文本
+      alertShow: false // 是否显示提示框
     }
   },
 
@@ -73,21 +89,109 @@ export default {
   },
 
   methods: {
-    getCode () {
+    // 异步获取短信验证码
+    async getCode () {
       // 如果当前没有计时
       if (!this.computeTime) {
         // 启动定时器
         this.computeTime = 30
-        const timeId = setInterval(() => {
+        this.timeId = setInterval(() => {
           this.computeTime--
           if (this.computeTime <= 0) {
-            clearInterval(timeId)
+            clearInterval(this.timeId)
           }
         }, 1000)
 
         // 发送 ajax 请求(向指定手机号发送验证码)
+        const result = await reqSendCode(this.phone)
+        if (result.code === 1) {
+          // 显示提示
+          this.showAlert(result.msg)
+          // 停止倒计时
+          if (this.computeTime) {
+            this.computeTime = 0
+            clearInterval(this.timeId)
+            this.timeId = undefined
+          }
+        }
       }
+    },
+    showAlert (alertText) {
+      this.alertShow = true
+      this.alertText = alertText
+    },
+    // 异步登录
+    async login () {
+      let result
+      // 前台表单提交
+      if (this.loginWay) { // 短信登录
+        const {rightPhone, phone, code} = this
+        if (!rightPhone) {
+          // 手机号不正确
+          this.showAlert('手机号不正确')
+          return
+        } else if (!/^\d{6}$/.test(code)) {
+          // 验证码必须是6位数字
+          this.showAlert('验证码必须是6位数字')
+          return
+        }
+        // 发送 ajax 请求短信登录
+        result = await reqSmsLogin({phone, code})
+      } else { // 密码登录
+        const { name, pwd, captcha } = this
+        if (!name) {
+          // 用户名必须指定
+          this.showAlert('用户名必须指定')
+          return
+        } else if (!pwd) {
+          // 密码必须指定
+          this.showAlert('密码必须指定')
+          return
+        } else if (!captcha) {
+          // 验证码必须指定
+          this.showAlert('验证码必须指定')
+          return
+        }
+        // 发送 ajax 请求密码登录
+        result = await reqPwdLogin({name, pwd, captcha})
+      }
+
+      // 停止倒计时
+      if (this.computeTime) {
+        this.computeTime = 0
+        clearInterval(this.timeId)
+        this.timeId = undefined
+      }
+
+      // 根据结果数据处理
+      if (result.code === 0) {
+        const user = result.data
+        // 将 user 保存到 vuex 中的 state
+        // 去个人中心界面
+        this.$store.dispatch('recordUser', user)
+        this.$router.replace('/profile')
+      } else {
+        // 显示新的图片验证码
+        this.getCaptcha()
+        // 显示警告信息
+        const msg = result.msg
+        this.showAlert(msg)
+      }
+    },
+    // 关闭提示框
+    closeTip () {
+      this.alertShow = false
+      this.alertText = ''
+    },
+    // 获取一个新的图像验证码
+    getCaptcha () {
+      // 每次指定的 src 都要不是一样
+      this.$refs.captcha.src = 'http://localhost:4000/captcha?time=' + Date.now()
     }
+  },
+
+  components: {
+    AlertTip
   }
 }
 </script>
@@ -195,6 +299,8 @@ export default {
                 background #fff
                 box-shadow 0 2px 4px 0 rgba(0,0,0,.1)
                 transition transform .3s
+                &.right
+                  transform translateX(27px)
           .login-hint
             margin-top 12px
             color #999
